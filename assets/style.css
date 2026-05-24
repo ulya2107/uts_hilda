@@ -1,0 +1,83 @@
+body {
+    background: #fdf6f9;
+    font-family: 'Poppins', sans-serif;
+}
+
+.navbar {
+    background: #e8dff5 !important;
+}
+
+.card {
+    border: none;
+    border-radius: 20px;
+    background: #fff8f0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.btn-primary {
+    background: #fbc4ab;
+    border: none;
+    color: #5a4e4d;
+    border-radius: 12px;
+}
+
+.btn-primary:hover {
+    background: #f8afa6;
+    color: #fff;
+}
+
+.btn-danger {
+    background: #ffd6d6;
+    border: none;
+    color: #5a4e4d;
+    border-radius: 12px;
+}
+
+.btn-danger:hover {
+    background: #ffbc;
+}
+
+.table {
+    background: #fff;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.table thead {
+    background: #c9f0ff;
+}
+
+.alert-danger {
+    background: #ffe5e5;
+    border: none;
+    color: #a33;
+    border-radius: 12px;
+}
+
+a {
+    color: #7a6f9b;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #5a4e4d;
+}
+
+.btn-secondary {
+    background: #ddd6fe;
+    border: none;
+    color: #5a4e4d;
+    border-radius: 12px;
+}
+
+.btn-secondary:hover {
+    background: #c4b5fd;
+    color: #fff;
+}
+
+.alert-success {
+    background: #d1f7c4;
+    border: none;
+    color: #2d5016;
+    border-radius: 12px;
+}
