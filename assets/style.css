@@ -81,3 +81,16 @@ a:hover {
     color: #2d5016;
     border-radius: 12px;
 }
+
+.pagination .page-link {
+    background: #fff8f0;
+    border: none;
+    color: #5a4e4d;
+    margin: 0 3px;
+    border-radius: 10px;
+}
+
+.pagination .page-item.active .page-link {
+    background: #fbc4ab;
+    color: #fff;
+}
