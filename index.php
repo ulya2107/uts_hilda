@@ -1,183 +1,116 @@
 <?php 
-include 'header.php'; 
-
-if(!isset($_SESSION['username'])){
-    header("Location: auth/login.php");
+require 'koneksi.php';
+if(!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
     exit;
 }
 
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$uid = $_SESSION['user_id'];
+$msg = "";
+$edit_data = null;
 
-// Pagination
-$limit = 5;
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$offset = ($page - 1) * $limit;
-
-// Proses tambah & edit
-if(isset($_POST['simpan'])){
-    $nama = mysqli_real_escape_string($conn, $_POST['nama']);
-    $alamat = mysqli_real_escape_string($conn, $_POST['alamat']);
-    $keperluan = mysqli_real_escape_string($conn, $_POST['keperluan']);
-    $id = $_POST['id'];
-
-    if($id == ""){
-        mysqli_query($conn, "INSERT INTO tamu (nama, alamat, keperluan) VALUES ('$nama', '$alamat', '$keperluan')");
-        $success = "Data berhasil ditambahkan!";
-    } else {
-        mysqli_query($conn, "UPDATE tamu SET nama='$nama', alamat='$alamat', keperluan='$keperluan' WHERE id='$id'");
-        $success = "Data berhasil diupdate!";
-    }
+// KIRIM TESTIMONI BARU
+if(isset($_POST['kirim'])){
+  $stmt = $conn->prepare("INSERT INTO tamu (user_id,nama,email,pesan,kehadiran) VALUES (?,?,?,?,?)");
+  $stmt->bind_param("issss", $uid, $_SESSION['username'], $_POST['email'], $_POST['pesan'], $_POST['kehadiran']);
+  if($stmt->execute()) $msg = "<div class='msg success'>Testimoni berhasil dikirim! ❀</div>";
 }
 
-// Proses hapus
+// UPDATE TESTIMONI MILIK SENDIRI
+if(isset($_POST['update'])){
+  $stmt = $conn->prepare("UPDATE tamu SET email=?, pesan=?, kehadiran=? WHERE id=? AND user_id=?");
+  $stmt->bind_param("sssii", $_POST['email'], $_POST['pesan'], $_POST['kehadiran'], $_POST['id'], $uid);
+  if($stmt->execute()) {
+    $msg = "<div class='msg success'>Testimoni berhasil diupdate!</div>";
+    $edit_data = null;
+  }
+}
+
+// HAPUS TESTIMONI MILIK SENDIRI  
 if(isset($_GET['hapus'])){
-    $id = $_GET['hapus'];
-    mysqli_query($conn, "DELETE FROM tamu WHERE id='$id'");
-    header("Location: index.php");
-    exit;
+  $stmt = $conn->prepare("DELETE FROM tamu WHERE id=? AND user_id=?");
+  $stmt->bind_param("ii", $_GET['hapus'], $uid);
+  $stmt->execute();
+  $msg = "<div class='msg success'>Testimoni berhasil dihapus.</div>";
 }
 
-// Ambil data untuk edit
-$edit_data = ['id'=>'', 'nama'=>'', 'alamat'=>'', 'keperluan'=>''];
+// AMBIL DATA BUAT EDIT
 if(isset($_GET['edit'])){
-    $id = $_GET['edit'];
-    $q = mysqli_query($conn, "SELECT * FROM tamu WHERE id='$id'");
-    $edit_data = mysqli_fetch_assoc($q);
+  $stmt = $conn->prepare("SELECT * FROM tamu WHERE id=? AND user_id=?");
+  $stmt->bind_param("ii", $_GET['edit'], $uid);
+  $stmt->execute();
+  $edit_data = $stmt->get_result()->fetch_assoc();
 }
-
-// Query data dengan search + pagination
-$where = $search ? "WHERE nama LIKE '%$search%' OR keperluan LIKE '%$search%'" : "";
-$total_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM tamu $where");
-$total_data = mysqli_fetch_assoc($total_query)['total'];
-$total_pages = ceil($total_data / $limit);
-
-$data = mysqli_query($conn, "SELECT * FROM tamu $where ORDER BY waktu DESC LIMIT $limit OFFSET $offset");
-
-// Statistik
-$total_tamu = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tamu"))['total'];
-$tamu_hari_ini = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tamu WHERE DATE(waktu) = CURDATE()"))['total'];
-
-// Data chart
-$chart_data = mysqli_query($conn, "SELECT DATE(waktu) as tanggal, COUNT(*) as jumlah FROM tamu GROUP BY DATE(waktu) ORDER BY tanggal DESC LIMIT 7");
-$labels = [];
-$values = [];
-while($row = mysqli_fetch_assoc($chart_data)){
-    $labels[] = date('d-M', strtotime($row['tanggal']));
-    $values[] = $row['jumlah'];
-}
-$labels = array_reverse($labels);
-$values = array_reverse($values);
 ?>
+<!DOCTYPE html>
+<html>
+<head>
+<title>Buku Tamu Digital</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <nav>Halo, <b><?= htmlspecialchars($_SESSION['username']) ?></b> | <a href="logout.php">Logout</a></nav>
+  
+  <h1>Buku Tamu</h1>
+  
+  <?php 
+  $total = $conn->query("SELECT COUNT(*) as jml FROM tamu WHERE kehadiran='Hadir'")->fetch_assoc()['jml'];
+  echo "<div class='counter'>💐 Jumlah Tamu Hadir: <b>$total</b> 💐</div>";
+  echo $msg;
+  ?>
 
-<!-- Statistik -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card p-3" style="background:#e8dff5;">
-            <h5>Total Tamu</h5>
-            <h2><?= $total_tamu ?></h2>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card p-3" style="background:#c9f0ff;">
-            <h5>Tamu Hari Ini</h5>
-            <h2><?= $tamu_hari_ini ?></h2>
-        </div>
-    </div>
+  <h2><?= $edit_data ? 'Edit Testimoni Kamu' : 'Tulis Testimoni & Doa' ?></h2>
+  <form method="POST">
+    <input type="hidden" name="id" value="<?= $edit_data['id'] ?? '' ?>">
+    <input type="email" name="email" placeholder="Email kamu" value="<?= htmlspecialchars($edit_data['email'] ?? '') ?>">
+    <select name="kehadiran" required>
+      <option value="Hadir" <?= ($edit_data['kehadiran']??'')=='Hadir'?'selected':'' ?>>Hadir</option>
+      <option value="Tidak Hadir" <?= ($edit_data['kehadiran']??'')=='Tidak Hadir'?'selected':'' ?>>Tidak Hadir</option>
+    </select>
+    <textarea name="pesan" placeholder="Tulis testimoni, kesan, atau doa untuk acara ini..." rows="4" required><?= htmlspecialchars($edit_data['pesan'] ?? '') ?></textarea>
+    
+    <?php if($edit_data): ?>
+      <button class="btn" name="update">Update Data</button>
+      <a href="index.php" class="btn" style="background:#ccc">Batal</a>
+    <?php else: ?>
+      <button class="btn" name="kirim" style="width:100%">Kirim Testimoni</button>
+    <?php endif; ?>
+  </form>
+
+  <h2>Testimoni Kamu</h2>
+  <?php 
+  $stmt = $conn->prepare("SELECT * FROM tamu WHERE user_id=? ORDER BY tanggal DESC");
+  $stmt->bind_param("i", $uid);
+  $stmt->execute();
+  $data = $stmt->get_result();
+  
+  if($data->num_rows == 0) {
+    echo "<p style='text-align:center;color:#999'>Kamu belum menulis testimoni.</p>";
+  }
+  
+  while($row = $data->fetch_assoc()){
+    echo "<div class='card'>
+      <small>{$row['tanggal']} - {$row['kehadiran']}</small>
+      <p>" . nl2br(htmlspecialchars($row['pesan'])) . "</p>
+      <div>
+        <a href='?edit={$row['id']}' class='btn' style='padding:6px 12px;font-size:13px'>Edit</a>
+        <a href='?hapus={$row['id']}' onclick='return confirm(\"Yakin hapus testimoni ini?\")' class='btn btn-danger' style='padding:6px 12px;font-size:13px'>Hapus</a>
+      </div>
+    </div>";
+  } 
+  ?>
+
+  <h2>Testimoni Semua Tamu</h2>
+  <?php 
+  $all = $conn->query("SELECT t.*,u.username FROM tamu t JOIN users u ON t.user_id=u.id ORDER BY tanggal DESC LIMIT 20");
+  while($row = $all->fetch_assoc()){
+    echo "<div class='card'>
+      <b>" . htmlspecialchars($row['username']) . "</b> <small>- {$row['tanggal']} - {$row['kehadiran']}</small>
+      <p>" . nl2br(htmlspecialchars($row['pesan'])) . "</p>
+    </div>";
+  } 
+  ?>
 </div>
-
-<!-- Chart -->
-<div class="card p-4 mb-4">
-    <h4>Statistik 7 Hari Terakhir</h4>
-    <canvas id="tamuChart"></canvas>
-</div>
-
-<!-- Search & Export -->
-<div class="row mb-3">
-    <div class="col-md-6">
-        <form method="GET" class="d-flex">
-            <input type="text" name="search" class="form-control me-2" placeholder="Cari nama/keperluan..." value="<?= $search ?>">
-            <button class="btn btn-primary">Cari</button>
-            <?php if($search): ?>
-                <a href="index.php" class="btn btn-secondary ms-2">Reset</a>
-            <?php endif; ?>
-        </form>
-    </div>
-    <div class="col-md-6 text-end">
-        <a href="export.php?type=excel" class="btn" style="background:#b7f7c8;">Export Excel</a>
-    </div>
-</div>
-
-<div class="row">
-    <!-- Form Tambah/Edit -->
-    <div class="col-md-5">
-        <div class="card p-4">
-            <h4 class="mb-3"><?= $edit_data['id'] ? "Edit Data Tamu" : "Isi Buku Tamu" ?></h4>
-            <?php if(isset($success)) echo "<div class='alert alert-success'>$success</div>"; ?>
-            <form method="POST">
-                <input type="hidden" name="id" value="<?= $edit_data['id'] ?>">
-                <div class="mb-3">
-                    <input type="text" name="nama" class="form-control" placeholder="Nama" value="<?= $edit_data['nama'] ?>" required>
-                </div>
-                <div class="mb-3">
-                    <textarea name="alamat" class="form-control" placeholder="Alamat" rows="2" required><?= $edit_data['alamat'] ?></textarea>
-                </div>
-                <div class="mb-3">
-                    <input type="text" name="keperluan" class="form-control" placeholder="Keperluan" value="<?= $edit_data['keperluan'] ?>" required>
-                </div>
-                <button type="submit" name="simpan" class="btn btn-primary w-100">Simpan</button>
-                <?php if($edit_data['id']): ?>
-                    <a href="index.php" class="btn btn-secondary w-100 mt-2">Batal</a>
-                <?php endif; ?>
-            </form>
-        </div>
-    </div>
-
-    <!-- Tabel Data -->
-    <div class="col-md-7">
-        <div class="card p-4">
-            <h4 class="mb-3">Data Tamu <small class="text-muted">(Total: <?= $total_data ?>)</small></h4>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead>
-                        <tr>
-                            <th>No</th>
-                            <th>Nama</th>
-                            <th>Alamat</th>
-                            <th>Keperluan</th>
-                            <th>Waktu</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php $no=$offset+1; while($row = mysqli_fetch_assoc($data)): ?>
-                        <tr>
-                            <td><?= $no++; ?></td>
-                            <td><?= $row['nama']; ?></td>
-                            <td><?= $row['alamat']; ?></td>
-                            <td><?= $row['keperluan']; ?></td>
-                            <td><?= date('d-m-Y H:i', strtotime($row['waktu'])); ?></td>
-                            <td>
-                                <a href="index.php?edit=<?= $row['id'] ?>" class="btn btn-sm" style="background:#ffeaa7;">Edit</a>
-                                <a href="index.php?hapus=<?= $row['id'] ?>" class="btn btn-sm" style="background:#fab1a0;" onclick="return confirm('Yakin hapus data ini?')">Hapus</a>
-                            </td>
-                        </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <nav>
-                <ul class="pagination justify-content-center">
-                    <?php for($i=1; $i<=$total_pages; $i++): ?>
-                    <li class="page-item <?= $i==$page ? 'active' : '' ?>">
-                        <a class="page-link" href="?page=<?= $i ?>&search=<?= $search ?>"><?= $i ?></a>
-                    </li>
-                    <?php endfor; ?>
-                </ul>
-            </nav>
-        </div>
-    </div>
-</div>
-
-<?php include 'footer.php'; ?>
+</body>
+</html>
