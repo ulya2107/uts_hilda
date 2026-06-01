@@ -1,30 +1,34 @@
-<?php require 'koneksi.php'; 
-$msg = "";
-if(isset($_POST['register'])){
-  $username = trim($_POST['username']);
-  $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-  $stmt = $conn->prepare("INSERT INTO users (username,password) VALUES (?,?)");
-  $stmt->bind_param("ss", $username, $password);
-  if($stmt->execute()) {
-    $msg = "<div class='msg success'>Registrasi berhasil! Silakan login.</div>";
-  } else {
-    $msg = "<div class='msg error'>Username sudah dipakai.</div>";
-  }
+<?php require 'config.php';
+if(isset($_POST['daftar'])){
+    $nama = $_POST['nama'];
+    $email = $_POST['email'];
+    $password = md5($_POST['password']);
+    
+    $cek = $conn->query("SELECT * FROM users WHERE email='$email'");
+    if($cek->num_rows > 0){
+        $error = "Email sudah terdaftar!";
+    } else {
+        $conn->query("INSERT INTO users (nama,email,password) VALUES ('$nama','$email','$password')");
+        $sukses = "Registrasi berhasil! Silakan login.";
+    }
 }
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Register - Buku Tamu</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<div class="container">
-<h2>Daftar Akun Baru</h2>
-<?= $msg ?>
+<head><title>Daftar Akun</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head>
+<body class="d-flex align-items-center" style="min-height:100vh">
+<div class="container"><div class="row justify-content-center"><div class="col-md-4">
+<div class="card p-4">
+<h2 class="text-center mb-4">📝 Daftar Akun</h2>
+<?php if(isset($error)) echo "<div class='alert alert-danger'>$error</div>"; 
+if(isset($sukses)) echo "<div class='alert alert-success'>$sukses</div>"; ?>
 <form method="POST">
-  <input type="text" name="username" placeholder="Username" required minlength="4">
-  <input type="password" name="password" placeholder="Password minimal 6 karakter" required minlength="6">
-  <button class="btn" name="register" style="width:100%">Daftar Sekarang</button>
+<div class="mb-3"><label>Nama Lengkap</label><input type="text" name="nama" class="form-control" required></div>
+<div class="mb-3"><label>Email</label><input type="email" name="email" class="form-control" required></div>
+<div class="mb-3"><label>Password</label><input type="password" name="password" class="form-control" required minlength="4"></div>
+<button name="daftar" class="btn btn-primary w-100">Daftar Sekarang</button>
 </form>
-<p style="text-align:center;margin-top:20px">Udah punya akun? <a href="login.php" style="color:var(--brown)">Login di sini</a></p>
-</div>
-</body>
-</html>
+<p class="text-center mt-3">Udah punya akun? <a href="login.php">Login di sini</a></p>
+</div></div></div></div></body></html>
